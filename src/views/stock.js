@@ -55,6 +55,9 @@ export async function vistaStock(cont) {
       if (c.estado === 'En uso' && c.sector) ubic = `En: ${esc(c.sector)}`
       else if (c.estado === 'En esterilización' && c.lugar_esterilizacion) ubic = `En: ${esc(c.lugar_esterilizacion)}`
       else if (c.estado === 'Disponible' && c.lugar_almacenamiento) ubic = `En: ${esc(c.lugar_almacenamiento)}`
+      const prep = c.prep_fecha
+        ? `<p class="meta">Últ. preparación: ${fecha(c.prep_fecha)} · ${esc(c.prep_proceso || 'proceso s/d')}${c.prep_operario ? ' · ' + esc(c.prep_operario) : ''}</p>`
+        : ''
       return `
         <div class="card">
           <div class="fila entre">
@@ -62,8 +65,8 @@ export async function vistaStock(cont) {
             <span class="badge ${claseEstado(c.estado)}">${esc(c.estado)}</span>
           </div>
           ${ubic ? `<p class="meta">${ubic}</p>` : ''}
-          <p class="meta">Método: ${esc(c.metodo || 'sin asignar')}</p>
           <p class="meta">Último mov.: ${fecha(c.ultima_fecha)}</p>
+          ${prep}
         </div>
       `
     }).join('') + `</div>`

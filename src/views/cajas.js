@@ -1,14 +1,12 @@
 import { supabase, BUCKET_FOTOS } from '../supabase.js'
-import { mostrarAviso, esc } from '../util.js'
-
-let metodos = []
+import { mostrarAviso, fecha, esc } from '../util.js'
 
 export async function vistaCajas(cont) {
   cont.innerHTML = `
     <div class="fila entre">
       <div>
         <h2 class="vista-titulo">Cajas</h2>
-        <p class="vista-sub">Catálogo de cajas, sus componentes, método de esterilización y fotos.</p>
+        <p class="vista-sub">Catálogo de cajas, sus componentes, fotos y última preparación.</p>
       </div>
       <button id="nueva" class="btn">+ Nueva caja</button>
     </div>
@@ -19,13 +17,10 @@ export async function vistaCajas(cont) {
   const avisos = cont.querySelector('#avisos')
   const lista = cont.querySelector('#lista')
 
-  const metRes = await supabase.from('metodos_esterilizacion').select('*').order('nombre')
-  metodos = metRes.data || []
-
   async function cargar() {
     const { data, error } = await supabase
       .from('cajas')
-      .select('*, metodos_esterilizacion(nombre), caja_items(id), caja_fotos(id)')
+      .select('*, caja_items(id), caja_fotos(id)')
       .order('nombre')
     if (error) { lista.innerHTML = `<p class="aviso error">${esc(error.message)}</p>`; return }
     if (!data.length) { lista.innerHTML = `<p class="vacio">No hay cajas.</p>`; return }
@@ -33,7 +28,6 @@ export async function vistaCajas(cont) {
     lista.innerHTML = `<div class="grid">` + data.map(c => `
       <div class="card">
         <h3>${esc(c.nombre)}${c.activa ? '' : ' (baja)'}</h3>
-        <p class="meta">Método: ${esc(c.metodos_esterilizacion?.nombre || 'sin asignar')}</p>
         <p class="meta">${c.caja_items.length} componente(s) · ${c.caja_fotos.length} foto(s)</p>
         <div class="espacio">
           <button class="btn secundario chico" data-editar="${c.id}">Ver / Editar</button>
@@ -55,14 +49,10 @@ function abrirNueva(recargar, avisos) {
   const fondo = crearModal(`
     <h2>Nueva caja</h2>
     <label>Nombre</label>
-    <input id="m-nombre" type="text" placeholder="Ej: Caja Cirugía N° 2" />
+    <input id="m-nombre" type="text" placeholder="Ej: Caja Cirugía N° 2 - 01" />
+    <p class="meta">Terminá el nombre con el número de unidad (- 01, - 02, …). Si hay varias cajas iguales, cada unidad física es una caja aparte: - 01, - 02, - 03.</p>
     <label>Descripción (opcional)</label>
     <input id="m-desc" type="text" />
-    <label>Método de esterilización (se puede asignar después)</label>
-    <select id="m-metodo">
-      <option value="">Sin asignar</option>
-      ${metodos.map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}
-    </select>
     <div class="espacio fila">
       <button id="m-guardar" class="btn">Crear caja</button>
       <button id="m-cancelar" class="btn secundario">Cancelar</button>
@@ -73,11 +63,9 @@ function abrirNueva(recargar, avisos) {
   fondo.querySelector('#m-guardar').addEventListener('click', async () => {
     const nombre = fondo.querySelector('#m-nombre').value.trim()
     if (!nombre) { alert('Escribí un nombre.'); return }
-    const metodo = fondo.querySelector('#m-metodo').value
     const { error } = await supabase.from('cajas').insert({
       nombre,
       descripcion: fondo.querySelector('#m-desc').value.trim() || null,
-      metodo_esterilizacion_id: metodo ? Number(metodo) : null,
     })
     if (error) {
       alert(error.message.includes('duplicate') ? 'Ya existe una caja con ese nombre.' : error.message)
@@ -99,25 +87,28 @@ async function abrirDetalle(cajaId, recargar, avisos) {
 }
 
 async function pintarDetalle(fondo, caja, recargar, avisos) {
-  const [itemsRes, fotosRes] = await Promise.all([
+  const [itemsRes, fotosRes, vistaRes] = await Promise.all([
     supabase.from('caja_items').select('*').eq('caja_id', caja.id).order('id'),
     supabase.from('caja_fotos').select('*').eq('caja_id', caja.id).order('orden'),
+    supabase.from('vista_estado_cajas').select('*').eq('id', caja.id).single(),
   ])
   const items = itemsRes.data || []
   const fotos = fotosRes.data || []
+  const v = vistaRes.data || {}
+
+  const prepHtml = v.prep_fecha
+    ? `<p class="meta">Fecha: ${fecha(v.prep_fecha)}</p>
+       <p class="meta">Operario: ${esc(v.prep_operario || '—')}</p>
+       <p class="meta">Proceso: ${esc(v.prep_proceso || '—')}</p>
+       <p class="meta">Lugar: ${esc(v.prep_lugar || '—')}</p>`
+    : `<p class="meta">Todavía no se registró ninguna preparación de esta caja.</p>`
 
   fondo.querySelector('.modal').innerHTML = `
     <button class="modal-cerrar" id="cerrar">&times;</button>
     <h2>${esc(caja.nombre)}</h2>
 
-    <label>Método de esterilización</label>
-    <select id="d-metodo">
-      <option value="">Sin asignar</option>
-      ${metodos.map(m => `<option value="${m.id}" ${m.id === caja.metodo_esterilizacion_id ? 'selected' : ''}>${esc(m.nombre)}</option>`).join('')}
-    </select>
-    <div class="espacio">
-      <button id="d-guardar-metodo" class="btn chico">Guardar método</button>
-    </div>
+    <h3 class="espacio">Última preparación</h3>
+    ${prepHtml}
 
     <h3 class="espacio">Componentes (${items.length})</h3>
     <table>
@@ -167,15 +158,6 @@ async function pintarDetalle(fondo, caja, recargar, avisos) {
 
   fondo.querySelector('#cerrar').addEventListener('click', () => { fondo.remove(); recargar() })
   fondo.querySelector('#cerrar2').addEventListener('click', () => { fondo.remove(); recargar() })
-
-  // Guardar método
-  fondo.querySelector('#d-guardar-metodo').addEventListener('click', async () => {
-    const v = fondo.querySelector('#d-metodo').value
-    const { error } = await supabase.from('cajas')
-      .update({ metodo_esterilizacion_id: v ? Number(v) : null }).eq('id', caja.id)
-    if (error) alert(error.message)
-    else mostrarAviso(avisos, 'Método actualizado.', 'ok')
-  })
 
   // Agregar componente
   fondo.querySelector('#d-add-item').addEventListener('click', async () => {

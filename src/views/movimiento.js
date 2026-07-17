@@ -36,6 +36,8 @@ export async function vistaMovimiento(cont) {
       <div id="campo-esterilizacion" style="display:none">
         <label>Lugar de esterilización</label>
         <select id="lugar-esterilizacion"></select>
+        <label>Tipo de proceso</label>
+        <select id="proceso"></select>
       </div>
 
       <div id="campo-almacenamiento" style="display:none">
@@ -61,14 +63,16 @@ export async function vistaMovimiento(cont) {
   const selTipo = cont.querySelector('#tipo')
   const selSector = cont.querySelector('#sector')
   const selEster = cont.querySelector('#lugar-esterilizacion')
+  const selProceso = cont.querySelector('#proceso')
   const selAlmac = cont.querySelector('#lugar-almacenamiento')
 
   // Cargar catálogos y cajas en paralelo.
-  const [cajasRes, sectoresRes, esterRes, almacRes] = await Promise.all([
+  const [cajasRes, sectoresRes, esterRes, procesoRes, almacRes] = await Promise.all([
     supabase.from('vista_estado_cajas').select('*').eq('activa', true).order('nombre'),
     supabase.from('sectores').select('*').eq('activo', true).order('nombre'),
-    supabase.from('lugares_esterilizacion').select('*').order('nombre'),
-    supabase.from('lugares_almacenamiento').select('*').order('nombre'),
+    supabase.from('lugares_esterilizacion').select('*').eq('activo', true).order('nombre'),
+    supabase.from('metodos_esterilizacion').select('*').order('nombre'),
+    supabase.from('lugares_almacenamiento').select('*').eq('activo', true).order('nombre'),
   ])
 
   if (cajasRes.error) {
@@ -84,6 +88,8 @@ export async function vistaMovimiento(cont) {
     .map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join('')
   selEster.innerHTML = (esterRes.data || [])
     .map(l => `<option value="${l.id}">${esc(l.nombre)}</option>`).join('')
+  selProceso.innerHTML = (procesoRes.data || [])
+    .map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('')
   selAlmac.innerHTML = (almacRes.data || [])
     .map(l => `<option value="${l.id}">${esc(l.nombre)}</option>`).join('')
 
@@ -117,6 +123,7 @@ export async function vistaMovimiento(cont) {
     if (!usuario) { mostrarAviso(avisos, 'Ingresá tu nombre como operador.', 'error'); return }
     if (tipo === 'egreso' && !selSector.value) { mostrarAviso(avisos, 'Elegí el sector de destino.', 'error'); return }
     if (tipo === 'envio_esterilizacion' && !selEster.value) { mostrarAviso(avisos, 'Elegí el lugar de esterilización.', 'error'); return }
+    if (tipo === 'envio_esterilizacion' && !selProceso.value) { mostrarAviso(avisos, 'Elegí el tipo de proceso.', 'error'); return }
     if (tipo === 'recepcion_esterilizado' && !selAlmac.value) { mostrarAviso(avisos, 'Elegí el lugar de almacenamiento.', 'error'); return }
 
     setUsuario(usuario)
@@ -128,6 +135,7 @@ export async function vistaMovimiento(cont) {
       observaciones: observaciones || null,
       sector_id: tipo === 'egreso' ? Number(selSector.value) : null,
       lugar_esterilizacion_id: tipo === 'envio_esterilizacion' ? Number(selEster.value) : null,
+      metodo_esterilizacion_id: tipo === 'envio_esterilizacion' ? Number(selProceso.value) : null,
       lugar_almacenamiento_id: tipo === 'recepcion_esterilizado' ? Number(selAlmac.value) : null,
     }
 

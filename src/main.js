@@ -3,14 +3,14 @@ import { vistaStock } from './views/stock.js'
 import { vistaMovimiento } from './views/movimiento.js'
 import { vistaHistorial } from './views/historial.js'
 import { vistaCajas } from './views/cajas.js'
-import { vistaSectores } from './views/sectores.js'
+import { vistaConfiguracion } from './views/configuracion.js'
 
 const PANTALLAS = [
   { id: 'stock', nombre: 'Stock', render: vistaStock },
   { id: 'movimiento', nombre: 'Nuevo movimiento', render: vistaMovimiento },
   { id: 'historial', nombre: 'Historial', render: vistaHistorial },
   { id: 'cajas', nombre: 'Cajas', render: vistaCajas },
-  { id: 'sectores', nombre: 'Sectores', render: vistaSectores },
+  { id: 'configuracion', nombre: 'Configuración', render: vistaConfiguracion },
 ]
 
 const app = document.querySelector('#app')

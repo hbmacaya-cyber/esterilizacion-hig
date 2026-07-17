@@ -42,7 +42,8 @@ export async function vistaHistorial(cont) {
         cajas ( nombre ),
         sectores ( nombre ),
         lugares_esterilizacion ( nombre ),
-        lugares_almacenamiento ( nombre )
+        lugares_almacenamiento ( nombre ),
+        metodos_esterilizacion ( nombre )
       `)
       .order('fecha_hora', { ascending: false })
       .limit(500)
@@ -72,7 +73,10 @@ export async function vistaHistorial(cont) {
           ${data.map(m => {
             let destino = '—'
             if (m.tipo === 'egreso') destino = m.sectores?.nombre || '—'
-            else if (m.tipo === 'envio_esterilizacion') destino = m.lugares_esterilizacion?.nombre || '—'
+            else if (m.tipo === 'envio_esterilizacion') {
+              destino = m.lugares_esterilizacion?.nombre || '—'
+              if (m.metodos_esterilizacion?.nombre) destino += ' · ' + m.metodos_esterilizacion.nombre
+            }
             else if (m.tipo === 'recepcion_esterilizado') destino = m.lugares_almacenamiento?.nombre || '—'
             return `
               <tr>
